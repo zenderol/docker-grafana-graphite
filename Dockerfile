@@ -16,8 +16,8 @@ RUN     pip install Django==1.5
 
 
 # Install Elasticsearch
-RUN     cd ~ && wget https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-1.3.2.deb
-RUN     cd ~ && dpkg -i elasticsearch-1.3.2.deb && rm elasticsearch-1.3.2.deb
+#RUN     cd ~ && wget https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-1.3.2.deb
+#RUN     cd ~ && dpkg -i elasticsearch-1.3.2.deb && rm elasticsearch-1.3.2.deb
 
 # Checkout the stable branches of Graphite, Carbon and Whisper and install from there
 RUN     mkdir /src
@@ -44,10 +44,13 @@ RUN     git clone https://github.com/etsy/statsd.git /src/statsd                
 
 
 # Install Grafana
-RUN     mkdir /src/grafana
-RUN     wget http://grafanarel.s3.amazonaws.com/grafana-1.9.1.tar.gz -O /src/grafana.tar.gz                   &&\
-        tar -xzf /src/grafana.tar.gz -C /src/grafana --strip-components=1 &&\
-        rm /src/grafana.tar.gz
+ENV     GRAFANA_VERSION 2.0.2
+RUN     mkdir -p /var/lib/grafana
+RUN     mkdir -p /var/log/grafana
+RUN     chown -R www-data /var/lib/grafana && chown -R www-data /var/log/grafana
+RUN     wget http://grafanarel.s3.amazonaws.com/builds/grafana-${GRAFANA_VERSION}.linux-x64.tar.gz -O - | tar -xzv -C /src
+RUN     mv /src/grafana-${GRAFANA_VERSION} /src/grafana
+ADD     ./grafana/grafana.ini /src/grafana/grafana.ini
 
 
 # ----------------- #
@@ -55,9 +58,9 @@ RUN     wget http://grafanarel.s3.amazonaws.com/grafana-1.9.1.tar.gz -O /src/gra
 # ----------------- #
 
 # Configure Elasticsearch
-ADD     ./elasticsearch/run /usr/local/bin/run_elasticsearch
-RUN     chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
-RUN     mkdir -p /tmp/elasticsearch && chown elasticsearch:elasticsearch /tmp/elasticsearch
+#ADD     ./elasticsearch/run /usr/local/bin/run_elasticsearch
+#RUN     chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
+#RUN     mkdir -p /tmp/elasticsearch && chown elasticsearch:elasticsearch /tmp/elasticsearch
 
 # Confiure StatsD
 ADD     ./statsd/config.js /src/statsd/config.js
@@ -76,11 +79,11 @@ RUN     chmod 0664 /opt/graphite/storage/graphite.db
 RUN     cd /opt/graphite/webapp/graphite && python manage.py syncdb --noinput
 
 # Configure Grafana
-ADD     ./grafana/config.js /src/grafana/config.js
+#ADD     ./grafana/config.js /src/grafana/config.js
 
 # Add the default dashboards
-RUN     mkdir /src/dashboards
-ADD     ./grafana/dashboards/* /src/dashboards/
+#RUN     mkdir /src/dashboards
+#ADD     ./grafana/dashboards/* /src/dashboards/
 
 # Configure nginx and supervisord
 ADD     ./nginx/nginx.conf /etc/nginx/nginx.conf
@@ -92,13 +95,13 @@ ADD     ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # ---------------- #
 
 # Grafana
-EXPOSE  80
+EXPOSE  3000 2000 2003
 
 # StatsD UDP port
-EXPOSE  8125/udp
+#EXPOSE  8125/udp
 
 # StatsD Management port
-EXPOSE  8126
+#EXPOSE  8126
 
 
 
@@ -107,3 +110,6 @@ EXPOSE  8126
 # -------- #
 
 CMD     ["/usr/bin/supervisord"]
+
+# Set http://127.0.0.1/graphite (proxy) as datasource in the grafana menu
+# http://docs.grafana.org/v2.0/installation/migrating_to2/
